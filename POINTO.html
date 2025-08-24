@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>POINTO — Multi-Tool Suite</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --panel:#ffffff; --text:#1f2937; --muted:#6b7280;
+    --brand:#2a9d8f; --brand-2:#264653; --accent:#e9c46a; --warn:#e76f51; --ok:#10b981;
+    --btn:#edf2f7; --btn-text:#111827; --ring:rgba(42,157,143,.25);
+  }
+  [data-theme="dark"]{
+    --bg:#0f172a; --panel:#131c2b; --text:#e5e7eb; --muted:#9ca3af;
+    --brand:#2dd4bf; --brand-2:#0b3b3b; --accent:#fbbf24; --warn:#f87171; --ok:#34d399;
+    --btn:#1f2937; --btn-text:#e5e7eb; --ring:rgba(45,212,191,.25);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+    min-height:100vh;display:grid;grid-template-columns:260px 1fr;grid-template-rows:auto 1fr;grid-template-areas:"sidebar header" "sidebar main";
+  }
+  header{
+    grid-area:header;display:flex;align-items:center;justify-content:space-between;
+    padding:12px 16px;border-bottom:1px solid rgba(0,0,0,.06);background:var(--panel);position:sticky;top:0;z-index:5;
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.3px}
+  .brand .logo{
+    width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--accent));
+    display:grid;place-items:center;color:white;font-weight:900;box-shadow:0 8px 20px var(--ring);
+  }
+  .subtitle{font-size:12px;color:var(--muted)}
+  .toolbar{display:flex;align-items:center;gap:8px}
+  .btn{
+    background:var(--btn);color:var(--btn-text);border:1px solid rgba(0,0,0,.06);
+    padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600;
+  }
+  .btn:hover{filter:brightness(1.05)}
+  .btn.primary{background:var(--brand);color:#fff;border:none}
+  .btn.warn{background:var(--warn);color:#fff;border:none}
+  .btn.ok{background:var(--ok);color:#fff;border:none}
+  .toggle{display:flex;align-items:center;gap:8px}
+  .toggle input{accent-color:var(--brand)}
+  aside{
+    grid-area:sidebar;background:var(--panel);border-right:1px solid rgba(0,0,0,.06);
+    position:sticky;top:0;height:100vh;padding:12px;overflow:auto;
+  }
+  .menu{display:grid;gap:6px}
+  .menu .item{
+    display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;cursor:pointer;
+    font-weight:600;color:var(--btn-text);background:transparent;border:1px solid transparent;
+  }
+  .menu .item.active,.menu .item:hover{background:var(--btn);border-color:rgba(0,0,0,.06)}
+  main{grid-area:main;padding:18px;overflow:auto}
+  section.tool{display:none;background:var(--panel);border-radius:16px;padding:16px;box-shadow:0 8px 24px var(--ring);}
+  section.tool.active{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:.4;transform:translateY(6px)}to{opacity:1;transform:none}}
+  h2{margin:0 0 12px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .row4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  label{font-size:13px;color:var(--muted);display:block;margin:6px 0 6px}
+  input,select,textarea{
+    width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(0,0,0,.1);background:transparent;color:var(--text);
+  }
+  .result{margin-top:10px;padding:10px 12px;border-radius:10px;background:rgba(0,0,0,.04)}
+  .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,"Roboto Mono",monospace;background:var(--btn);padding:2px 6px;border-radius:6px}
+  .keypad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .keypad .k{padding:12px;border-radius:12px;background:var(--btn);border:1px solid rgba(0,0,0,.06);text-align:center;font-weight:700;cursor:pointer;user-select:none}
+  .k.op{background:var(--accent)}
+  .k.eq{background:var(--brand);color:#fff}
+  .k.warn{background:var(--warn);color:#fff}
+  .pill{display:inline-flex;align-items:center;gap:8px;background:var(--btn);padding:6px 10px;border-radius:999px;font-size:12px;margin-right:6px}
+  .muted{color:var(--muted)}
+  .history{max-height:260px;overflow:auto;border:1px dashed rgba(0,0,0,.1);border-radius:12px;padding:10px}
+  .hr{height:1px;background:rgba(0,0,0,.08);margin:10px 0}
+  .small{font-size:12px}
+  .right{display:flex;justify-content:flex-end;gap:8px}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+  <aside>
+    <div class="brand" style="margin:6px 8px 12px">
+      <div class="logo">P</div>
+      <div>
+        <div>POINTO</div>
+        <div class="subtitle">Multi-Tool Suite</div>
+      </div>
+    </div>
+    <div class="menu" id="menu">
+      <div class="item active" data-target="calc">🧮 Calculator</div>
+      <div class="item" data-target="age">🎂 Age</div>
+      <div class="item" data-target="tax">💰 Tax</div>
+      <div class="item" data-target="currency">💱 Currency</div>
+      <div class="item" data-target="unit">📏 Unit Converter</div>
+      <div class="item" data-target="bmi">💪 BMI</div>
+      <div class="item" data-target="emi">🏦 EMI/Loan</div>
+      <div class="item" data-target="physics">⚛ Physics</div>
+      <div class="item" data-target="math">➗ Math Tools</div>
+      <div class="item" data-target="history">📜 History</div>
+      <div class="item" data-target="about">ℹ️ About</div>
+    </div>
+  </aside>
+
+  <header>
+    <div class="pill">Project: <strong>POINTO</strong></div>
+    <div class="toolbar">
+      <div class="toggle">
+        <span class="muted small">Dark mode</span>
+        <input type="checkbox" id="themeToggle" />
+      </div>
+      <button class="btn" id="copyHistory">Copy History</button>
+      <button class="btn" id="downloadHistory">Download .txt</button>
+      <button class="btn" id="clearHistory">Clear</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Calculator -->
+    <section class="tool active" id="calc">
+      <h2>Calculator <span class="muted small">(Basic + Scientific)</span></h2>
+      <div class="row">
+        <div>
+          <label>Expression</label>
+          <input id="calcDisplay" placeholder="Type or use keypad…" />
+          <div class="right" style="margin-top:8px">
+            <button class="btn" id="micBtn">🎙️ Voice</button>
+            <button class="btn" id="backspace">⌫</button>
+            <button class="btn warn" id="clearCalc">C</button>
+            <button class="btn primary" id="evalCalc">=</button>
+          </div>
+          <div class="hr"></div>
+          <div class="keypad" id="keypad">
+            <!-- Row 1 -->
+            <div class="k">7</div><div class="k">8</div><div class="k">9</div><div class="k op">/</div>
+            <!-- Row 2 -->
+            <div class="k">4</div><div class="k">5</div><div class="k">6</div><div class="k op">*</div>
+            <!-- Row 3 -->
+            <div class="k">1</div><div class="k">2</div><div class="k">3</div><div class="k op">-</div>
+            <!-- Row 4 -->
+            <div class="k">0</div><div class="k">.</div><div class="k eq">=</div><div class="k op">+</div>
+            <!-- Sci -->
+            <div class="k">(</div><div class="k">)</div><div class="k">^</div><div class="k">√</div>
+            <div class="k">sin(</div><div class="k">cos(</div><div class="k">tan(</div><div class="k">log(</div>
+            <div class="k">ln(</div><div class="k">π</div><div class="k">e</div><div class="k">x²</div>
+          </div>
+          <div class="result small muted">Tips: <span class="kbd">^</span> is power, <span class="kbd">x²</span> squares current number, <span class="kbd">√</span> wraps sqrt(), trig uses radians.</div>
+        </div>
+        <div>
+          <label>Result</label>
+          <textarea id="calcResult" rows="10" readonly></textarea>
+          <div class="right" style="margin-top:8px">
+            <button class="btn ok" id="copyCalc">Copy</button>
+            <button class="btn" id="addToHistoryCalc">Save to History</button>
+          </div>
+          <div class="hr"></div>
+          <div class="small muted">History snippet will include your expression and evaluated result.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Age -->
+    <section class="tool" id="age">
+      <h2>Age Calculator</h2>
+      <div class="row">
+        <div>
+          <label>Date of Birth</label>
+          <input type="date" id="dob"/>
+          <button class="btn primary" id="ageBtn" style="margin-top:8px">Calculate Age</button>
+          <div class="result" id="ageOut"></div>
+        </div>
+        <div>
+          <label>Next Birthday Countdown</label>
+          <div class="result" id="bdayOut">—</div>
+          <button class="btn" id="saveAge">Save to History</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tax -->
+    <section class="tool" id="tax">
+      <h2>Tax Calculator</h2>
+      <div class="row">
+        <div>
+          <label>Mode</label>
+          <select id="taxMode">
+            <option value="flat">Flat %</option>
+            <option value="slab">Sample Slabs (Demo)</option>
+          </select>
+          <div id="taxFlat">
+            <label>Income</label><input type="number" id="income" placeholder="e.g. 600000"/>
+            <label>Tax %</label><input type="number" id="taxRate" placeholder="e.g. 5"/>
+          </div>
+          <div id="taxSlab" class="hidden">
+            <div class="small muted">DEMO slabs (editable JSON):</div>
+            <textarea id="slabJson" rows="6">[
+  {"upto": 300000, "rate": 0},
+  {"upto": 600000, "rate": 5},
+  {"upto": 900000, "rate": 10},
+  {"upto": 1200000, "rate": 15},
+  {"upto": 1500000, "rate": 20},
+  {"upto": null, "rate": 30}
+]</textarea>
+            <label>Annual Income</label><input type="number" id="slabIncome" placeholder="e.g. 1200000"/>
+          </div>
+          <button class="btn primary" id="taxBtn" style="margin-top:8px">Calculate</button>
+        </div>
+        <div>
+          <div class="result" id="taxOut"></div>
+          <div class="right" style="margin-top:8px">
+            <button class="btn" id="saveTax">Save to History</button>
+          </div>
+        </div>
+      </div>
+      <div class="small muted hr"></div>
+      <div class="small muted">Note: Slab mode is a demonstration. Adjust JSON to match your region's rules.</div>
+    </section>
+
+    <!-- Currency -->
+    <section class="tool" id="currency">
+      <h2>Currency Converter</h2>
+      <div class="row">
+        <div>
+          <label>Amount</label><input id="curAmount" type="number" placeholder="100"/>
+          <div class="row">
+            <div>
+              <label>From</label>
+              <select id="curFrom"><option>INR</option><option>USD</option><option>EUR</option><option>GBP</option></select>
+            </div>
+            <div>
+              <label>To</label>
+              <select id="curTo"><option>USD</option><option>INR</option><option>EUR</option><option>GBP</option></select>
+            </div>
+          </div>
+          <button class="btn primary" id="curBtn" style="margin-top:8px">Convert</button>
+        </div>
+        <div>
+          <div class="result" id="curOut">Rates: auto-fetch (if online) or fallback static.</div>
+          <div class="right" style="margin-top:8px">
+            <button class="btn" id="saveCur">Save to History</button>
+          </div>
+        </div>
+      </div>
+      <div class="small muted hr"></div>
+      <div class="small muted">Live rates via exchangerate.host (if available). Fallback uses simple static rates.</div>
+    </section>
+
+    <!-- Unit Converter -->
+    <section class="tool" id="unit">
+      <h2>Unit Converter</h2>
+      <div class="row">
+        <div>
+          <label>Category</label>
+          <select id="unitCat">
+            <option value="length">Length</option>
+            <option value="weight">Weight</option>
+            <option value="temp">Temperature</option>
+          </select>
+          <div class="row">
+            <div><label>From</label><select id="unitFrom"></select></div>
+            <div><label>To</label><select id="unitTo"></select></div>
+          </div>
+          <label>Value</label><input id="unitVal" type="number" placeholder="Enter value"/>
+          <button class="btn primary" id="unitBtn" style="margin-top:8px">Convert</button>
+        </div>
+        <div>
+          <div class="result" id="unitOut"></div>
+          <button class="btn" id="saveUnit" style="margin-top:8px">Save to History</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- BMI -->
+    <section class="tool" id="bmi">
+      <h2>BMI Calculator</h2>
+      <div class="row">
+        <div>
+          <label>Height (cm)</label><input id="bmiH" type="number" placeholder="170"/>
+          <label>Weight (kg)</label><input id="bmiW" type="number" placeholder="65"/>
+          <button class="btn primary" id="bmiBtn" style="margin-top:8px">Calculate BMI</button>
+        </div>
+        <div>
+          <div class="result" id="bmiOut"></div>
+          <button class="btn" id="saveBmi" style="margin-top:8px">Save to History</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- EMI -->
+    <section class="tool" id="emi">
+      <h2>EMI / Loan Calculator</h2>
+      <div class="row">
+        <div>
+          <label>Principal (₹)</label><input id="emiP" type="number" placeholder="500000"/>
+          <label>Annual Interest %</label><input id="emiR" type="number" placeholder="10"/>
+          <label>Tenure (months)</label><input id="emiN" type="number" placeholder="60"/>
+          <button class="btn primary" id="emiBtn" style="margin-top:8px">Calculate EMI</button>
+        </div>
+        <div>
+          <div class="result" id="emiOut"></div>
+          <button class="btn" id="saveEmi" style="margin-top:8px">Save to History</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Physics -->
+    <section class="tool" id="physics">
+      <h2>Physics Tools</h2>
+      <div class="row3">
+        <div>
+          <label>Force F = m × a</label>
+          <input id="m" type="number" placeholder="m (kg)"/>
+          <input id="a" type="number" placeholder="a (m/s²)"/>
+          <button class="btn primary" id="forceBtn" style="margin-top:8px">Compute</button>
+          <div class="result" id="forceOut"></div>
+        </div>
+        <div>
+          <label>Speed v = d / t</label>
+          <input id="d" type="number" placeholder="d (m)"/>
+          <input id="t" type="number" placeholder="t (s)"/>
+          <button class="btn primary" id="speedBtn" style="margin-top:8px">Compute</button>
+          <div class="result" id="speedOut"></div>
+        </div>
+        <div>
+          <label>Kinetic Energy KE = ½ m v²</label>
+          <input id="km" type="number" placeholder="m (kg)"/>
+          <input id="kv" type="number" placeholder="v (m/s)"/>
+          <button class="btn primary" id="keBtn" style="margin-top:8px">Compute</button>
+          <div class="result" id="keOut"></div>
+        </div>
+      </div>
+      <div class="row3" style="margin-top:10px">
+        <div>
+          <label>Potential Energy PE = m g h</label>
+          <input id="pm" type="number" placeholder="m (kg)"/>
+          <input id="ph" type="number" placeholder="h (m)"/>
+          <button class="btn primary" id="peBtn" style="margin-top:8px">Compute</button>
+          <div class="result" id="peOut"></div>
+        </div>
+        <div>
+          <label>Ohm's Law V = I × R</label>
+          <input id="i" type="number" placeholder="I (A)"/>
+          <input id="r" type="number" placeholder="R (Ω)"/>
+          <button class="btn primary" id="ohmBtn" style="margin-top:8px">Compute</button>
+          <div class="result" id="ohmOut"></div>
+        </div>
+        <div>
+          <label>Power P = W / t</label>
+          <input id="pw" type="number" placeholder="Work (J)"/>
+          <input id="pt" type="number" placeholder="Time (s)"/>
+          <button class="btn primary" id="powBtn" style="margin-top:8px">Compute</button>
+          <div class="result" id="powOut"></div>
+        </div>
+      </div>
+      <div class="right" style="margin-top:8px">
+        <button class="btn" id="savePhysics">Save results to History</button>
+      </div>
+    </section>
+
+    <!-- Math Tools -->
+    <section class="tool" id="math">
+      <h2>Math Tools</h2>
+      <div class="row3">
+        <div>
+          <label>Factorial n!</label>
+          <input id="factN" type="number" placeholder="e.g. 5"/>
+          <button class="btn primary" id="factBtn" style="margin-top:8px">Compute</button>
+          <div class="result" id="factOut"></div>
+        </div>
+        <div>
+          <label>Prime Checker</label>
+          <input id="primeN" type="number" placeholder="e.g. 29"/>
+          <button class="btn primary" id="primeBtn" style="margin-top:8px">Check</button>
+          <div class="result" id="primeOut"></div>
+        </div>
+        <div>
+          <label>GCD / LCM</label>
+          <div class="row">
+            <input id="gcdA" type="number" placeholder="a"/>
+            <input id="gcdB" type="number" placeholder="b"/>
+          </div>
+          <button class="btn primary" id="gcdBtn" style="margin-top:8px">Compute</button>
+          <div class="result" id="gcdOut"></div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div>
+          <label>Quadratic Solver ax² + bx + c = 0</label>
+          <div class="row">
+            <input id="qa" type="number" placeholder="a"/>
+            <input id="qb" type="number" placeholder="b"/>
+          </div>
+          <input id="qc" type="number" placeholder="c"/>
+          <button class="btn primary" id="quadBtn" style="margin-top:8px">Solve</button>
+          <div class="result" id="quadOut"></div>
+        </div>
+        <div></div>
+      </div>
+      <div class="right" style="margin-top:8px">
+        <button class="btn" id="saveMath">Save to History</button>
+      </div>
+    </section>
+
+    <!-- History -->
+    <section class="tool" id="history">
+      <h2>History</h2>
+      <div class="history" id="historyBox">No entries yet.</div>
+      <div class="small muted" style="margin-top:6px">History is stored locally in your browser. Use Copy/Download buttons in the header.</div>
+    </section>
+
+    <!-- About -->
+    <section class="tool" id="about">
+      <h2>About POINTO</h2>
+      <p>POINTO is a single-file multi-tool app that includes a scientific calculator, age, tax, currency, unit, BMI, EMI, physics formulas, math helpers, and a cross-tool history system.</p>
+      <ul>
+        <li>One file (HTML+CSS+JS).</li>
+        <li>Dark/Light mode, keyboard & voice input, copy & download history.</li>
+        <li>Designed for students and everyday quick calculations.</li>
+      </ul>
+      <div class="small muted">Built with ❤️</div>
+    </section>
+  </main>
+
+<script>
+// ========= Util =========
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+const fmt = n => Number.isFinite(n) ? (Math.abs(n) >= 1e6 || Math.abs(n) < 1e-4 ? n.toExponential(6) : n.toLocaleString(undefined,{maximumFractionDigits:8})) : 'NaN';
+const nowStr = () => new Date().toLocaleString();
+
+// Theme
+const themeToggle = $('#themeToggle');
+const savedTheme = localStorage.getItem('pointo-theme') || 'light';
+document.documentElement.setAttribute('data-theme', savedTheme);
+themeToggle.checked = savedTheme === 'dark';
+themeToggle.addEventListener('change', () => {
+  const t = themeToggle.checked ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('pointo-theme', t);
+});
+
+// Menu navigation
+$$('.menu .item').forEach(item=>{
+  item.addEventListener('click', e=>{
+    $$('.menu .item').forEach(i=>i.classList.remove('active'));
+    item.classList.add('active');
+    const target = item.getAttribute('data-target');
+    $$('section.tool').forEach(s=>s.classList.remove('active'));
+    $('#'+target).classList.add('active');
+  });
+});
+
+// History
+const HISTORY_KEY = 'pointo-history';
+function loadHistory(){
+  const list = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  const box = $('#historyBox');
+  if(!list.length){ box.textContent = 'No entries yet.'; return; }
+  box.innerHTML = list.map(h => `<div class="entry"><div class="small muted">${h.time} — <strong>${h.tool}</strong></div><div>${h.text}</div><div class="hr"></div></div>`).join('');
+}
+function pushHistory(tool, text){
+  const list = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  list.unshift({time: nowStr(), tool, text});
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0,500)));
+  loadHistory();
+}
+loadHistory();
+$('#copyHistory').onclick = async ()=>{
+  const list = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  const text = list.map(h => `[${h.time}] ${h.tool}: ${h.text}`).join('\n');
+  try { await navigator.clipboard.writeText(text); alert('History copied!'); } catch{ alert('Copy failed'); }
+};
+$('#downloadHistory').onclick = ()=>{
+  const list = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  const text = list.map(h => `[${h.time}] ${h.tool}: ${h.text}`).join('\n');
+  const blob = new Blob([text], {type:'text/plain'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='POINTO-history.txt'; a.click();
+  URL.revokeObjectURL(url);
+};
+$('#clearHistory').onclick = ()=>{ if(confirm('Clear history?')){ localStorage.removeItem(HISTORY_KEY); loadHistory(); }};
+
+// ========= Calculator =========
+const disp = $('#calcDisplay');
+const res = $('#calcResult');
+const keypad = $('#keypad');
+function insert(val){
+  const start = disp.selectionStart ?? disp.value.length;
+  const end = disp.selectionEnd ?? disp.value.length;
+  disp.value = disp.value.slice(0,start) + val + disp.value.slice(end);
+  disp.focus();
+  disp.selectionStart = disp.selectionEnd = start + val.length;
+}
+keypad.addEventListener('click', e=>{
+  const k = e.target.closest('.k'); if(!k) return;
+  const v = k.textContent;
+  if(v==='='){ evaluate(); return;}
+  if(v==='√'){ insert('sqrt('); return;}
+  if(v==='π'){ insert('pi'); return;}
+  if(v==='e'){ insert('e'); return;}
+  if(v==='x²'){ insert('^2'); return;}
+  insert(v);
+});
+$('#backspace').onclick = ()=>{
+  const start = disp.selectionStart ?? disp.value.length;
+  const end = disp.selectionEnd ?? disp.value.length;
+  if(start===end && start>0){
+    disp.value = disp.value.slice(0,start-1)+disp.value.slice(end);
+    disp.selectionStart = disp.selectionEnd = start-1;
+  }else{
+    disp.value = disp.value.slice(0,start)+disp.value.slice(end);
+    disp.selectionStart = disp.selectionEnd = start;
+  }
+  disp.focus();
+};
+$('#clearCalc').onclick = ()=>{ disp.value=''; res.value=''; };
+$('#evalCalc').onclick = evaluate;
+$('#copyCalc').onclick = async ()=>{
+  try{ await navigator.clipboard.writeText(res.value || disp.value); alert('Copied!'); }catch{ alert('Copy failed'); }
+};
+$('#addToHistoryCalc').onclick = ()=>{
+  pushHistory('Calculator', `${disp.value} = ${res.value || '—'}`);
+  alert('Saved to history');
+};
+
+// Voice input (if supported)
+let rec;
+$('#micBtn').onclick = ()=>{
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ alert('Speech recognition not supported on this browser.'); return; }
+  if(!rec){ rec = new SR(); rec.lang='en-US'; rec.interimResults=false; }
+  rec.onresult = e=>{ const text=e.results[0][0].transcript; // basic replacements
+    const m = text.toLowerCase().replace(/plus/g,'+').replace(/minus/g,'-').replace(/into|times|multiplied by/g,'*')
+      .replace(/by|divide|divided by/g,'/').replace(/power|to the power of/g,'^').replace(/point/g,'.');
+    insert(m);
+  };
+  rec.start();
+};
+
+function evaluate(){
+  try{
+    let expr = disp.value;
+    // Safe transform: caret to power, sqrt, trig, log/ln, constants
+    expr = expr.replace(/√/g,'sqrt');
+    expr = expr.replace(/(\d+|\)|pi|e)\s*\^/g,'pow($1,');
+    // complete pow(a, b) by turning "^b" into ",b)"
+    expr = expr.replace(/pow\(([^,]+),\s*([^\(\)]+)\)/g,'pow($1,$2)');
+    expr = expr.replace(/sin\(/g,'Math.sin(').replace(/cos\(/g,'Math.cos(').replace(/tan\(/g,'Math.tan(');
+    expr = expr.replace(/log\(/g,'Math.log10(').replace(/ln\(/g,'Math.log(');
+    expr = expr.replace(/sqrt\(/g,'Math.sqrt(');
+    expr = expr.replace(/pi/g,'Math.PI').replace(/e/g,'Math.E');
+    expr = expr.replace(/pow\(/g,'Math.pow(');
+    // Prevent dangerous tokens
+    if(/[^-+/*^().,\d \t\nMathPIEloginsqrtpow]/i.test(expr)) throw new Error('Invalid tokens');
+    const out = Function('return ('+expr+')')();
+    res.value = String(out);
+  }catch(err){
+    res.value = 'Error: ' + err.message;
+  }
+}
+disp.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); evaluate(); }
+});
+
+// ========= Age =========
+$('#ageBtn').onclick = ()=>{
+  const dobStr = $('#dob').value;
+  if(!dobStr){ $('#ageOut').textContent='Enter a valid date.'; return; }
+  const dob = new Date(dobStr);
+  const now = new Date();
+  if(isNaN(dob)) { $('#ageOut').textContent='Enter a valid date.'; return; }
+  let years = now.getFullYear() - dob.getFullYear();
+  let months = now.getMonth() - dob.getMonth();
+  let days = now.getDate() - dob.getDate();
+  if(days < 0){ months--; const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0); days += prevMonth.getDate(); }
+  if(months < 0){ years--; months += 12; }
+  $('#ageOut').innerHTML = `You are <strong>${years}</strong> years, <strong>${months}</strong> months, <strong>${days}</strong> days old.`;
+  // next birthday
+  let next = new Date(now.getFullYear(), dob.getMonth(), dob.getDate());
+  if(next < now) next.setFullYear(now.getFullYear()+1);
+  const diff = next - now;
+  const dd = Math.floor(diff/86400000);
+  const hh = Math.floor((diff%86400000)/3600000);
+  const mm = Math.floor((diff%3600000)/60000);
+  $('#bdayOut').textContent = `${dd} days, ${hh} hours, ${mm} minutes`;
+};
+$('#saveAge').onclick = ()=>{
+  pushHistory('Age', ($('#ageOut').textContent||'—') + ' | Next Birthday: ' + ($('#bdayOut').textContent||'—'));
+  alert('Saved');
+};
+
+// ========= Tax =========
+$('#taxMode').onchange = e=>{
+  const v = e.target.value;
+  $('#taxFlat').classList.toggle('hidden', v!=='flat');
+  $('#taxSlab').classList.toggle('hidden', v!=='slab');
+};
+function calcFlatTax(){
+  const inc = parseFloat($('#income').value);
+  const rate = parseFloat($('#taxRate').value);
+  if(!isFinite(inc) || !isFinite(rate)) return 'Enter valid income and rate.';
+  const tax = inc*rate/100, final = inc - tax;
+  return `Income: ${fmt(inc)} | Rate: ${rate}% | Tax: ${fmt(tax)} | Take-home: ${fmt(final)}`;
+}
+function calcSlabTax(){
+  let slabs; try{ slabs = JSON.parse($('#slabJson').value); }catch{ return 'Invalid slab JSON.'; }
+  const income = parseFloat($('#slabIncome').value);
+  if(!isFinite(income)) return 'Enter valid income.';
+  let remaining = income, last = 0, tax=0, parts=[];
+  for(const s of slabs){
+    const cap = s.upto===null ? Infinity : s.upto;
+    const seg = Math.max(0, Math.min(remaining, cap - last));
+    const tt = seg * (s.rate/100);
+    if(seg>0) parts.push(`${fmt(seg)} @ ${s.rate}% = ${fmt(tt)}`);
+    tax += tt; remaining -= seg; last = cap; if(remaining<=0) break;
+  }
+  const eff = (tax/income)*100;
+  return `Income: ${fmt(income)} | Tax: ${fmt(tax)} | Effective: ${eff.toFixed(2)}%\nBreakdown:\n - `+parts.join('\n - ');
+}
+$('#taxBtn').onclick = ()=>{
+  const mode = $('#taxMode').value;
+  const out = mode==='flat' ? calcFlatTax() : calcSlabTax();
+  $('#taxOut').textContent = out;
+};
+$('#saveTax').onclick = ()=>{ pushHistory('Tax', $('#taxOut').textContent||'—'); alert('Saved'); };
+
+// ========= Currency =========
+let rates = {
+  "INR":{"USD":0.012,"EUR":0.011,"GBP":0.0095},
+  "USD":{"INR":83,"EUR":0.9,"GBP":0.78},
+  "EUR":{"INR":92,"USD":1.1,"GBP":0.86},
+  "GBP":{"INR":106,"USD":1.28,"EUR":1.16}
+};
+async function fetchRates(base){
+  try{
+    const r = await fetch(`https://api.exchangerate.host/latest?base=${encodeURIComponent(base)}`);
+    const j = await r.json();
+    return j && j.rates ? j.rates : null;
+  }catch{ return null; }
+}
+$('#curBtn').onclick = async ()=>{
+  const amt = parseFloat($('#curAmount').value);
+  const from = $('#curFrom').value, to = $('#curTo').value;
+  if(!isFinite(amt)) { $('#curOut').textContent='Enter a valid amount.'; return; }
+  if(from===to){ $('#curOut').textContent = `${fmt(amt)} ${from} = ${fmt(amt)} ${to}`; return; }
+  // try live
+  let rate = rates[from]?.[to];
+  try{
+    const live = await fetchRates(from);
+    if(live && live[to]) rate = live[to];
+  }catch{}
+  if(!rate){ $('#curOut').textContent='Rate unavailable.'; return; }
+  const converted = amt * rate;
+  $('#curOut').textContent = `${fmt(amt)} ${from} = ${fmt(converted)} ${to}  (rate ~ ${rate})`;
+};
+$('#saveCur').onclick = ()=>{ pushHistory('Currency', $('#curOut').textContent||'—'); alert('Saved'); };
+
+// ========= Unit Converter =========
+const unitOpts = {
+  length:{ units:{m:1, km:1000, cm:0.01, mm:0.001, mi:1609.344, ft:0.3048, in:0.0254}},
+  weight:{ units:{kg:1, g:0.001, lb:0.45359237, oz:0.0283495231}},
+  temp:{ units:{C:'C', F:'F', K:'K'}}
+};
+function fillUnits(cat){
+  const from=$('#unitFrom'), to=$('#unitTo');
+  from.innerHTML=''; to.innerHTML='';
+  for(const u of Object.keys(unitOpts[cat].units)){
+    const o1=document.createElement('option'); o1.value=o1.textContent=u; from.appendChild(o1);
+    const o2=document.createElement('option'); o2.value=o2.textContent=u; to.appendChild(o2);
+  }
+  to.selectedIndex = 1;
+}
+$('#unitCat').onchange = e=> fillUnits(e.target.value);
+fillUnits('length');
+function convertUnits(cat, val, from, to){
+  if(cat==='temp'){
+    // convert from -> C
+    let c;
+    if(from==='C') c = val;
+    if(from==='F') c = (val-32)*5/9;
+    if(from==='K') c = val - 273.15;
+    // C -> to
+    if(to==='C') return c;
+    if(to==='F') return c*9/5+32;
+    if(to==='K') return c+273.15;
+    return NaN;
+  }else{
+    const map = unitOpts[cat].units;
+    return val * map[from] / map[to];
+  }
+}
+$('#unitBtn').onclick = ()=>{
+  const cat = $('#unitCat').value;
+  const val = parseFloat($('#unitVal').value);
+  const from = $('#unitFrom').value, to = $('#unitTo').value;
+  if(!isFinite(val)){ $('#unitOut').textContent='Enter a valid value.'; return; }
+  const out = convertUnits(cat, val, from, to);
+  $('#unitOut').textContent = `${fmt(val)} ${from} = ${fmt(out)} ${to}`;
+};
+$('#saveUnit').onclick = ()=> pushHistory('Unit', $('#unitOut').textContent||'—');
+
+// ========= BMI =========
+$('#bmiBtn').onclick = ()=>{
+  const h = parseFloat($('#bmiH').value)/100;
+  const w = parseFloat($('#bmiW').value);
+  if(!isFinite(h) || !isFinite(w) || h<=0){ $('#bmiOut').textContent = 'Enter valid height and weight.'; return; }
+  const bmi = w/(h*h);
+  let cat = 'Underweight';
+  if(bmi>=18.5 && bmi<25) cat='Normal';
+  else if(bmi>=25 && bmi<30) cat='Overweight';
+  else if(bmi>=30) cat='Obese';
+  $('#bmiOut').textContent = `BMI: ${bmi.toFixed(2)} (${cat})`;
+};
+$('#saveBmi').onclick = ()=> pushHistory('BMI', $('#bmiOut').textContent||'—');
+
+// ========= EMI =========
+$('#emiBtn').onclick = ()=>{
+  const P = parseFloat($('#emiP').value), r = parseFloat($('#emiR').value)/1200, n = parseInt($('#emiN').value);
+  if(!isFinite(P)||!isFinite(r)||!isFinite(n)||n<=0){ $('#emiOut').textContent='Enter valid inputs.'; return; }
+  const E = P*r*Math.pow(1+r,n) / (Math.pow(1+r,n)-1);
+  const total = E*n, interest = total - P;
+  $('#emiOut').textContent = `Monthly EMI: ₹${fmt(E)} | Total Interest: ₹${fmt(interest)} | Total Payment: ₹${fmt(total)}`;
+};
+$('#saveEmi').onclick = ()=> pushHistory('EMI', $('#emiOut').textContent||'—');
+
+// ========= Physics =========
+$('#forceBtn').onclick = ()=>{
+  const m = parseFloat($('#m').value), a = parseFloat($('#a').value);
+  const F = m*a; $('#forceOut').textContent = Number.isFinite(F) ? `F = ${fmt(F)} N` : 'Enter valid m and a';
+};
+$('#speedBtn').onclick = ()=>{
+  const d = parseFloat($('#d').value), t = parseFloat($('#t').value);
+  const v = d/t; $('#speedOut').textContent = (Number.isFinite(v) && t!==0) ? `v = ${fmt(v)} m/s` : 'Enter valid d and t (t ≠ 0)';
+};
+$('#keBtn').onclick = ()=>{
+  const m = parseFloat($('#km').value), v = parseFloat($('#kv').value);
+  const ke = 0.5*m*v*v; $('#keOut').textContent = Number.isFinite(ke) ? `KE = ${fmt(ke)} J` : 'Enter valid m and v';
+};
+$('#peBtn').onclick = ()=>{
+  const m = parseFloat($('#pm').value), h = parseFloat($('#ph').value), g=9.81;
+  const pe = m*g*h; $('#peOut').textContent = Number.isFinite(pe) ? `PE = ${fmt(pe)} J` : 'Enter valid m and h';
+};
+$('#ohmBtn').onclick = ()=>{
+  const i = parseFloat($('#i').value), r = parseFloat($('#r').value);
+  const v = i*r; $('#ohmOut').textContent = Number.isFinite(v) ? `V = ${fmt(v)} V` : 'Enter valid I and R';
+};
+$('#powBtn').onclick = ()=>{
+  const w = parseFloat($('#pw').value), t = parseFloat($('#pt').value);
+  const p = w/t; $('#powOut').textContent = (Number.isFinite(p) && t!==0) ? `P = ${fmt(p)} W` : 'Enter valid W and t (t ≠ 0)';
+};
+$('#savePhysics').onclick = ()=>{
+  const txt = ['forceOut','speedOut','keOut','peOut','ohmOut','powOut'].map(id=>$('#'+id).textContent).filter(Boolean).join(' | ');
+  pushHistory('Physics', txt || '—');
+  alert('Saved');
+};
+
+// ========= Math =========
+function factorial(n){ let r=1n; for(let i=2n;i<=n;i++) r*=i; return r; }
+function isPrime(n){
+  if(n<2) return false; if(n%2===0) return n===2; const r = Math.floor(Math.sqrt(n));
+  for(let i=3;i<=r;i+=2) if(n%i===0) return false; return true;
+}
+function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ [a,b]=[b,a%b]; } return a; }
+function lcm(a,b){ return Math.abs(a*b)/gcd(a,b); }
+$('#factBtn').onclick = ()=>{
+  const n = Number($('#factN').value);
+  if(!Number.isInteger(n) || n<0 || n>170){ // 170! fits in JS Number? Use BigInt for larger.
+    try{
+      const nn = BigInt($('#factN').value);
+      if(nn<0n || nn>2000n) { $('#factOut').textContent='Enter 0–2000 (BigInt).'; return; }
+      $('#factOut').textContent = `${nn}! = ${factorial(nn).toString()}`;
+    }catch{ $('#factOut').textContent='Enter a valid integer.'; }
+    return;
+  }
+  // Number factorial up to 170
+  let r=1; for(let i=2;i<=n;i++) r*=i;
+  $('#factOut').textContent = `${n}! = ${r}`;
+};
+$('#primeBtn').onclick = ()=>{
+  const n = parseInt($('#primeN').value);
+  if(!Number.isInteger(n) || n<0){ $('#primeOut').textContent='Enter a non-negative integer.'; return; }
+  $('#primeOut').textContent = `${n} is ${isPrime(n)?'prime ✅':'not prime ❌'}`;
+};
+$('#gcdBtn').onclick = ()=>{
+  const a = parseInt($('#gcdA').value), b = parseInt($('#gcdB').value);
+  if(!Number.isFinite(a) || !Number.isFinite(b)){ $('#gcdOut').textContent='Enter valid integers.'; return; }
+  $('#gcdOut').textContent = `GCD(${a}, ${b}) = ${gcd(a,b)} | LCM = ${lcm(a,b)}`;
+};
+$('#quadBtn').onclick = ()=>{
+  const a = parseFloat($('#qa').value), b = parseFloat($('#qb').value), c = parseFloat($('#qc').value);
+  if(!isFinite(a)||!isFinite(b)||!isFinite(c) || a===0){ $('#quadOut').textContent='Enter valid a (≠0), b, c.'; return; }
+  const D = b*b - 4*a*c;
+  if(D>0){ const r1=(-b+Math.sqrt(D))/(2*a), r2=(-b-Math.sqrt(D))/(2*a); $('#quadOut').textContent=`Roots are real & distinct: x₁=${fmt(r1)}, x₂=${fmt(r2)}`; }
+  else if(D===0){ const r=-b/(2*a); $('#quadOut').textContent=`Roots are real & equal: x=${fmt(r)}`; }
+  else { const re=(-b)/(2*a), im=Math.sqrt(-D)/(2*a); $('#quadOut').textContent=`Complex roots: x=${fmt(re)} ± ${fmt(im)}i`; }
+};
+$('#saveMath').onclick = ()=>{
+  const txt = ['factOut','primeOut','gcdOut','quadOut'].map(id=>$('#'+id).textContent).filter(Boolean).join(' | ');
+  pushHistory('Math', txt || '—'); alert('Saved');
+};
+</script>
+</body>
+</html>
